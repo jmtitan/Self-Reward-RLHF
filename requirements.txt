@@ -1,0 +1,8 @@
+accelerate
+datasets
+tqdm
+transformers @ git+https://github.com/huggingface/transformers
+peft
+torch
+trl @ git+https://github.com/huggingface/trl.git@7630f877f91c556d9e5a3baa4b6e2894d90ff84c
+bitsandbytes
