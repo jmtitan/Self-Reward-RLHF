@@ -1,14 +1,17 @@
 
 import re
-from engine import GenEngine
-from get_prompts import *
-from get_responses import *
+import json
+import uuid
+import pandas as pd
+from utils.engine import GenEngine
+from utils.helper import *
+from transformers import TextStreamer
 
 
 class Generator(GenEngine):
     
     device = "cuda"
-    prompts_num = 1000
+    prompts_num = 2
 
     
     srlm_prompt = """Review the user’s question and the corresponding response using the additive 5-point
@@ -92,7 +95,7 @@ class Generator(GenEngine):
             "max_new_tokens": 256
         }
 
-        ift_df = read_jsonl_file(input_path)
+        ift_df =  pd.read_json(input_path, lines=True)
         uniq_prompts = set([])
         new_prompts = []
         while True:
@@ -111,8 +114,9 @@ class Generator(GenEngine):
                     new_prompts.append({"prompt_id": prompt_id, "prompt": prompt, "source": "generated"})
 
             new_prompts_df = pd.DataFrame(new_prompts)
-            save_to_jsonl(new_prompts_df, output_path)
+            new_prompts_df.to_json(output_path, orient='records', lines=True)
 
+        print('Generating prompts finished.')
         return new_prompts_df.head()
 
 
@@ -154,7 +158,8 @@ class Generator(GenEngine):
 
             df_completions = pd.DataFrame(completions)
             df_completions.to_json(output_path, orient='records', lines=True)
-        
+
+        print('Generating responses finished.')
         return df_completions.head()
 
 
@@ -175,64 +180,66 @@ class Generator(GenEngine):
             prompt_id = row['prompt_id']
             prompt = row['prompt']
             completion = row['completion']
+            buf = {}
+            print("-=============================")
+            for i in range(4):
+                print("-------------------------")
+                buf[str(i)] = {
+                    'content':completion[str(i)], 
+                    'score':0, 
+                    "reasoning":""
+                }
+                llm_as_a_judge_prompt = self.srlm_prompt.format(prompt=prompt,response=completion[str(i)])
+                inputs = [{"role": "user", "content": llm_as_a_judge_prompt},]
+                answer = self.sample(inputs, generate_settings)
 
-            print("-------------------------")
+                matches = re.findall(pattern, answer)
+                generated_score = int(matches[0]) if matches else -1
 
-            llm_as_a_judge_prompt = self.srlm_prompt.format(prompt=prompt,response=completion)
-            inputs = [{"role": "user", "content": llm_as_a_judge_prompt},]
-            answer = self.sample(inputs, generate_settings)
+                print("Found Score: ", generated_score)
 
-            matches = re.findall(pattern, answer)
-            generated_score = int(matches[0]) if matches else -1
-
-            # print(f"Answer {answer}")
-            print("Found Score: ", generated_score)
-
+                buf[str(i)]['score'] = generated_score
+                buf[str(i)]['reasoning'] = answer
             results.append({
                 "prompt_id": prompt_id,
                 "prompt": prompt,
-                "completion": completion,
-                "score": generated_score,
-                "reasoning": answer
+                "completion": buf,
             })
 
             # save every time
             df_results = pd.DataFrame(results)
             df_results.to_json(output_path, orient='records', lines=True)
 
-
+        print('Generating scores finished.')
         return df_results.head()
 
 
     def generate_preferences(self, input_path, output_path):
 
-        prompts = {}
+        gen_data = []
         with open(input_path, "r") as f:
             for line in f:
                 row = json.loads(line)
-                prompt_id = row['prompt_id']
-
-                if prompt_id not in prompts:
-                    prompts[prompt_id] = []
-
-                prompts[row['prompt_id']].append(row)
+                gen_data.append(row)
 
         pairs = []
-        for prompt_id, prompts in prompts.items():
-            # find the best score
+        for row in gen_data:
+            
+            # find the best/worst score
             best_score = -1
             best_prompt = None
-            for prompt in prompts:
-                if prompt['score'] > best_score:
-                    best_score = prompt['score']
-                    best_prompt = prompt
-            # find the worst score
             worst_score = 100
             worst_prompt = None
-            for prompt in prompts:
-                if prompt['score'] < worst_score:
-                    worst_score = prompt['score']
-                    worst_prompt = prompt
+            
+            for i in range(4):
+                score = row['completion'][str(i)]['score']
+                answer = row['completion'][str(i)]['content']
+                if score > best_score:
+                    best_score = score
+                    best_prompt = answer
+                if score < worst_score:
+                    worst_score = score
+                    worst_prompt = answer
 
             if None == best_prompt or None == worst_prompt:
                 continue
@@ -241,12 +248,12 @@ class Generator(GenEngine):
                 continue
 
             pairs.append({
-                "prompt_id": best_prompt['prompt_id'],
-                "prompt": best_prompt['prompt'],
-                "chosen": best_prompt['completion'],
-                "rejected": worst_prompt['completion'],
-                "score_chosen": best_prompt['score'],
-                "score_rejected": worst_prompt['score']
+                "prompt_id": row['prompt_id'],
+                "prompt": row['prompt'],
+                "chosen": best_prompt,
+                "rejected": worst_prompt,
+                "score_chosen": best_score,
+                "score_rejected": worst_score
             })
 
 
@@ -254,6 +261,7 @@ class Generator(GenEngine):
         with open(output_path, "w") as f:
             for line in pairs:
                 f.write(json.dumps(line) + "\n")
+        print('Generating preference finished.')
 
         
 
