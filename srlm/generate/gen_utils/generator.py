@@ -55,11 +55,11 @@ class Generator(GenEngine):
             print(f"{inputs}")
             print(">"*80)
             model_inputs = self.tokenizer(inputs, return_tensors="pt").to("cuda")
+            
         elif isinstance(inputs, list):
             """
             inputs = [
                 {"role": "user", "content": prompt},
-                # {"role": "assistant", "content": ""},
                     ]       
             """
 
@@ -146,7 +146,7 @@ class Generator(GenEngine):
             for idx in range(4):
                 print("-----------------------------------------------------------------------")
                 print(f"Processing prompt {index + 1}, completion {idx + 1}")
-                inputs = [{"role": "user", "content": prompt},]
+                inputs = format_chat(prompt)
                 answer = self.sample(inputs, generate_settings)
                 completion = filter_completion(answer)
 
