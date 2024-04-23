@@ -1,5 +1,5 @@
 import argparse
-from utils.generator import Generator
+from gen_utils.generator import Generator
 
 
 
