@@ -39,13 +39,18 @@ def extract_prompts(answer):
     print(prompts)
     return prompts
 
+def format_chat(prompt):
+    indicator_prompt = f"<|im_start|>user:\nIn 256 characters or fewer, provide a direct answer to the following question. Do not add extra information or generate new questions: {prompt}<|im_end|>\n"
+    chat_format_prompt = indicator_prompt + "<|im_start|>assistant\n"
+    return chat_format_prompt
 
 def filter_completion(answer):
     # get pure anwer
     pattern = f"<|im_start|>assistant"
     parts = answer.split(pattern)
-    if len(parts) < 1:
-        raise ValueError("Wrong Answer format!")
+    if len(parts) <= 1:
+        return ""
+        # raise ValueError("Wrong Answer format!")
     
     # del indicator
     completion = parts[1].replace("<|im_end|>", "")
