@@ -11,7 +11,7 @@ from transformers import TextStreamer
 class Generator(GenEngine):
     
     device = "cuda"
-    prompts_num = 2
+    prompts_num = 1000
 
     
     srlm_prompt = """Review the user’s question and the corresponding response using the additive 5-point
