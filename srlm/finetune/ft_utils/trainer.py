@@ -48,7 +48,8 @@ class SftTraining(Trainer):
             warmup_steps=30,
             logging_steps=1,
             num_train_epochs=1,
-            save_steps=50
+            save_steps=50,
+            remove_unused_columns=True
         )
 
         trainer = SFTTrainer(
@@ -92,15 +93,16 @@ class DpoTraining(Trainer):
             save_steps=50,
             lr_scheduler_type="cosine",
             optim="paged_adamw_32bit",
+            remove_unused_columns=True,
         )
 
         trainer = DPOTrainer(
-            model=self.base_model,
+            model=self.model,
             ref_model=ref_model,
             args=training_args,
             train_dataset=self.dataset,
             tokenizer=self.tokenizer,
-            peft_config=self.perf_config,
+            peft_config=self.peft_config,
             beta=0.1,
             max_prompt_length=1024,
             max_length=1536,
