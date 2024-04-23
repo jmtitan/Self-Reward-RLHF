@@ -43,7 +43,7 @@ class BaseModel:
                 target_modules = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj"]
             )
 
-            model = prepare_model_for_kbit_training(self.model)
+            model = prepare_model_for_kbit_training(model)
             model = get_peft_model(model, peft_config)
 
             model.print_trainable_parameters()
