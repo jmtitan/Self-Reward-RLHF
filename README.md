@@ -12,7 +12,7 @@ Implement for [Self-Rewarding Language Model paper](https://arxiv.org/abs/2401.1
 pip install -r requirements.txt
 ```
 
-## Test
+## Usage
 
 self reward llm
 ```
