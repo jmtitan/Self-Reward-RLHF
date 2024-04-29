@@ -2,8 +2,8 @@
 
 Implement for [Self-Rewarding Language Model paper](https://arxiv.org/abs/2401.10020) from MetaAI.
 
-### Implement method
- - self reward llm
+### Advanced method for small language model:
+
  - Teacher reward llm
  - Teacher instruct llm
 
