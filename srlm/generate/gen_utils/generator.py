@@ -2,11 +2,12 @@
 import re
 import json
 import uuid
+import time
 import pandas as pd
 from utils.engine import GenEngine
 from utils.helper import *
 from transformers import TextStreamer
-
+import google.generativeai as genai
 
 class Generator(GenEngine):
     
@@ -264,5 +265,68 @@ class Generator(GenEngine):
         print('Generating preference finished.')
 
         
+    def gemini(input_path, output_path):
+        generate_settings = {
+            "top_p": 1.0,
+            "temperature": 1.0,
+            "max_new_tokens": 100
+        }
+        from google.colab import userdata
+        # Or use `os.getenv('GOOGLE_API_KEY')` to fetch an environment variable.
+        GOOGLE_API_KEY=userdata.get('GOOGLE_API_KEY')
+    
+        genai.configure(api_key=GOOGLE_API_KEY)
+        model = genai.GenerativeModel('gemini-1.0-pro-latest')
 
+
+        df = pd.read_json(path_or_buf=input_path, lines=True)
+        pattern = r"[Ss]core: ([0-5])"
+        results = []
+        start = 0
+        for index, row in df.iterrows():
+            if index < start:
+                continue
+            prompt_id = row['prompt_id']
+            prompt = row['prompt']
+            completion = row['completion']
+            buf = {}
+            print("-============================="+ str(index))
+            try:
+                for i in range(4):
+                    print("-------------------------")
+                    buf[str(i)] = {
+                        'content':completion[str(i)],
+                        'score':0,
+                        "reasoning":""
+                    }
+                    llm_as_a_judge_prompt = self.srlm_prompt.format(prompt=prompt,response=completion[str(i)])
+
+                    try:
+                        answer = model.generate_content(llm_as_a_judge_prompt)
+                    except Exception as e:
+                        print(f"error:{e}")
+                        print("try after 5s...")
+                        time.sleep(5)
+                        answer = model.generate_content(llm_as_a_judge_prompt)
+                        print("continue...")
+
+                    matches = re.findall(pattern, answer.text)
+                    generated_score = int(matches[0]) if matches else -1
+                    print("Found Score: ", generated_score)
+                    buf[str(i)]['score'] = generated_score
+                    buf[str(i)]['reasoning'] = answer.text
+                    time.sleep(1.3)
+
+                results.append({
+                    "prompt_id": prompt_id,
+                    "prompt": prompt,
+                    "completion": buf,
+                })
+            except Exception as e:
+                continue
+                        # save every time
+            df_results = pd.DataFrame(results)
+            df_results.to_json(output_path, orient='records', lines=True)
+
+        print('Generating scores finished.')
     
