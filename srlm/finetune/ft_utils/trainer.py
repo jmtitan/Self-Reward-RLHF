@@ -1,43 +1,64 @@
 
 import os
+import torch
+
 from ft_utils.model import BaseModel
 from ft_utils.data import collate_fn, chat_format
 from datasets import load_dataset
-from transformers import TrainingArguments
+from transformers import TrainingArguments, AutoModelForCausalLM, AutoTokenizer
+from peft import PeftModel
 from trl import SFTTrainer, DPOTrainer
 
 
 class Trainer(BaseModel):
 
-    def __init__(self, tokenizer_name, model_name, data_path, output_path, 
+    def __init__(self, model_name, data_path, output_path, user_name,
                  lora_setting=None) -> None:
-        super().__init__(tokenizer_name, model_name, lora_setting)
+        super().__init__(model_name, lora_setting)
 
         # load the training dataset
         dataset = load_dataset("json", data_files={'train': data_path})
         dataset = dataset['train'].shuffle(seed=42)
         # data mapping
         self.dataset = dataset
-        
+        self.user = user_name
+        self.model_name = model_name
         self.output_path = output_path
-
+        self.style = None
 
     def __call__(self):
         pass
         
+    def push_to_hub(self):
+        base_model = AutoModelForCausalLM.from_pretrained(
+            self.model_name,
+            return_dict=True,
+            torch_dtype=torch.bfloat16,
+        )
+
+        # Merge base model with the adapter
+        model = PeftModel.from_pretrained(base_model, self.output_path + 'final_checkpoint')
+        model = model.merge_and_unload()
+        # push LLM
+        web = self.user + '/' +  self.style
+        model.push_to_hub(web, token=True,safe_serialization=True)
+        # push tokenizer
+        tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        tokenizer.push_to_hub(web, token=True,safe_serialization=True)
+        return web
 
 
 class SftTraining(Trainer):
 
-    def __init__(self, tokenizer_name, model_name, data_path, output_path, lora_setting=None, lr=0.0002, batch_size=4) -> None:
-        super().__init__(tokenizer_name, model_name, data_path, output_path, lora_setting)
+    def __init__(self, model_name, data_path, output_path, lora_setting=None, lr=0.0002, batch_size=4) -> None:
+        super().__init__(model_name, data_path, output_path, user_name, lora_setting)
         
         self.dataset.map(lambda x: collate_fn(self.tokenizer, x))
         self.model.config.pretraining_tp = 1
         # hyperparameters
         self.lr = lr
         self.batch_size = batch_size
-        
+        self.style = 'sft'
 
     def __call__(self):
         training_args = TrainingArguments(
@@ -69,8 +90,8 @@ class SftTraining(Trainer):
 
 class DpoTraining(Trainer):
 
-    def __init__(self, tokenizer_name, model_name, data_path, output_path, lora_setting=None, lr=0.0002, batch_size=4) -> None:
-        super().__init__(tokenizer_name, model_name, data_path, output_path, lora_setting)
+    def __init__(self, model_name, data_path, output_path, lora_setting=None, lr=0.0002, batch_size=4) -> None:
+        super().__init__(model_name, data_path, output_path, user_name, lora_setting)
         
         self.dataset.map(chat_format)
         self.model.config.use_cache = False
@@ -78,7 +99,7 @@ class DpoTraining(Trainer):
         # hyperparameters
         self.lr = lr
         self.batch_size = batch_size
-        
+        self.style = 'dpo'
 
     def __call__(self, ref_model=None):
         training_args = TrainingArguments(

@@ -1,0 +1,4 @@
+[ZoneTransfer]
+ZoneId=3
+ReferrerUrl=http://region-42.seetacloud.com:56046/jupyter/lab/tree/Self-Reward-RLHF/data/M0/generated
+HostUrl=http://region-42.seetacloud.com:56046/jupyter/files/Self-Reward-RLHF/data/M0/generated/scores.jsonl?_xsrf=2%7Cdd6e6710%7C06e5bd0a5a57bb177a5c78a775d2e871%7C1713810166
