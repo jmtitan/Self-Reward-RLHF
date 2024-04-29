@@ -2,21 +2,16 @@
 
 Implement for [Self-Rewarding Language Model paper](https://arxiv.org/abs/2401.10020) from MetaAI.
 
-#### step 1: SFT (M0 -> M1)
+## Implement method
+ - self reward llm
+ - Teacher reward llm
+ - Teacher instruct llm
+
+## Installation
 ```
-python srlm/finetune/SFT.py
-```
-#### step 2: Generates dpo dataset 
-```
-python srlm/generate/Generate.py
-```
-#### step 3: DPO (M1 -> M2)
-```
-python srlm/finetune/DPO.py
+pip install -r requirements.txt
 ```
 
-#### step 4:(option) upload model
-Use notebook/upload_model.ipynb to upload final_checkpoint model into huggingface hub.
 
 
 
